@@ -16,13 +16,13 @@ bool homeostaticModule::addNewDrive(string driveName, yarp::os::Bottle& grpHomeo
     cout << "H1 " << grpHomeostatic.check((driveName + "-decay"), Value(drv->decay)).asDouble() <<endl; 
     drv->setDecay(grpHomeostatic.check((driveName + "-decay"), Value(drv->decay)).asDouble());
     drv->setValue((drv->homeostasisMax + drv->homeostasisMin) / 2.);
-    drv->setGradient(grpHomeostatic.check((driveName + "-gradient"), Value(drv->gradient)).asBool());
-    cout << "h2 " << drv->decay << endl;
+    drv->setGradient(grpHomeostatic.check((driveName + "-gradient"), Value(drv->gradient)).asInt());
+    cout << "h2 " << drv->gradient << endl;
     //cout << drv->name << " " << drv->homeostasisMin << " " << drv->homeostasisMax << " " << drv->decay << " " <<drv->gradient << endl;
     //cout << d << endl;
     //cout << grpHomeostatic.toString()<<endl;
     manager.addDrive(drv);
-     cout << "h2 " << manager.drives[0]->decay << endl;
+    //cout << "h2 " << manager.drives[0]->gradient << endl;
    
     openPorts(driveName);
 
@@ -266,7 +266,9 @@ bool homeostaticModule::respond(const Bottle& cmd, Bottle& reply)
         }
         else if (cmd.get(1).asString()=="new")
         {
+            cout << "I'm in manager "<<endl;
             string d_name = cmd.get(2).asString();
+            cout << "adding new drive... " << endl;
             bool b = addNewDrive(d_name);
             if (b)
                 reply.addString("add new drive: ack");
@@ -322,12 +324,12 @@ bool homeostaticModule::updateModule()
         yarp::os::Bottle* inp;
         inp = input_ports[d]->read(false);
         //cout << inp << endl;
-        
+        cout <<"G= " <<manager.drives[d]->gradient<<endl;
         if(manager.drives[d]->gradient == true)
         {
             if (inp)
             {
-                cout<< "Input: "<<inp->get(0).asString()<<endl;
+                //cout<< "Input: "<<inp->get(0).asString()<<endl;
                 if (manager.drives[d]->name == "avoidance")
                     {
                         processAvoidance(d,inp);
@@ -335,6 +337,7 @@ bool homeostaticModule::updateModule()
                 else
                 {
                     manager.drives[d]->setValue(inp->get(0).asDouble());
+                    cout<<"Printing gradient value: "<< endl;
                 }
             }else{
                 //manager.drives[d]->setValue(inp->get(0).asDouble());
@@ -358,10 +361,10 @@ bool homeostaticModule::updateModule()
                 aux=1;
                 //aux = 0-aux;
             }
-            cout<<manager.drives[d]->getValue()<<endl;
-            cout << manager.drives[d]->homeostasisMax<<endl;
+            //cout<<manager.drives[d]->getValue()<<endl;
+            //cout << manager.drives[d]->homeostasisMax<<endl;
             out2.addDouble(aux);
-            cout<<out2.get(0).asDouble()<<endl;
+            //cout<<out2.get(0).asDouble()<<endl;
             outputM_ports[d]->write();
         }else{
             yarp::os::Bottle &out1 = outputm_ports[d]->prepare();// = output_ports[d]->prepare();

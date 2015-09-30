@@ -24,6 +24,9 @@ using namespace std;
 
 bool proactiveTagging::configure(yarp::os::ResourceFinder &rf)
 {
+
+
+
     string moduleName = rf.check("name", Value("proactiveTagging")).asString().c_str();
     setName(moduleName.c_str());
 
@@ -104,6 +107,53 @@ bool proactiveTagging::configure(yarp::os::ResourceFinder &rf)
 
 
     iCub->say("proactive tagging is ready", false);
+
+
+
+    if (iCub->opc->isConnected())
+    {
+        iCub->opc->checkout();
+        list<Entity*> lEntities = iCub->opc->EntitiesCacheCopy();
+
+        for (list<Entity*>::iterator itEnt = lEntities.begin(); itEnt != lEntities.end(); itEnt++)
+        {
+            if ( (*itEnt)->entity_type() == "object" && (dynamic_cast<Object*>(*itEnt))->m_ego_position[0] != 0.0){
+                if ((dynamic_cast<Object*>(*itEnt))->m_ego_position[1] < -0.15) {
+                    cube_name = (*itEnt)->name();
+                } else if ( (dynamic_cast<Object*>(*itEnt))->m_ego_position[1] < 0.15) {
+                    lobster_name = (*itEnt)->name();
+                } else {
+                    flower_name = (*itEnt)->name();
+                }
+            }
+            
+        }
+    }
+    else
+    {
+        yWarning() << " in proactiveTagging::searchingEntity | OPC not Connected";
+        //bOutput.addString("error");
+        //bOutput.addString("OPC not connected");
+
+        //return bOutput;
+    }
+/*
+    if (<Object*>(e))->m_ego_position[1] < -0.15) {
+        sNameBestEntity = "unknown_4";
+    } else if (<Object*>(e))->m_ego_position[1] < 0.15) {
+    sNameBestEntity = "unknown_5";
+    } else {
+        sNameBestEntity = "unknown_3";
+    }    
+    if (sNameTarget == "cube" && sNameTarget == "lego") {
+        sName = "cube";
+    } else if (<Object*>(e))->m_ego_position[1] < 0.15) {
+        sName = "lobster";
+    } else {
+        sName = "flower";
+    }  
+*/
+
 
     return true;
 }
@@ -502,6 +552,9 @@ Bottle proactiveTagging::exploreUnknownEntity(Bottle bInput)
 
     string sReply;
     Entity* e = iCub->opc->getEntity(sNameTarget);
+
+
+
     e->changeName(sName);
     iCub->opc->commit(e);
 
@@ -597,114 +650,156 @@ Bottle proactiveTagging::searchingEntity(Bottle bInput)
     yInfo() << " " << sSentence;
 
 
-    Bottle bToPasar;
-    bToPasar.addString("pointing");
-    bToPasar.addString("on");
-    portToPasar.write(bToPasar);
+    // Bottle bToPasar;
+    // bToPasar.addString("pointing");
+    // bToPasar.addString("on");
+    // portToPasar.write(bToPasar);
 
-    bool bFound = false;
+    // bool bFound = false;
 
-    Time::delay(2.);
+    Time::delay(7.);
 
     // start detecting unknown objects
-    while (!bFound)
-    {
-        iCub->opc->checkout();
-        list<Entity*> lEntities = iCub->opc->EntitiesCacheCopy();
+    // while (!bFound)
+    // {
+    //     iCub->opc->checkout();
+    //     list<Entity*> lEntities = iCub->opc->EntitiesCacheCopy();
 
-        double highestSaliency = 0.0;
-        double secondSaliency = 0.0;
-        string sNameBestEntity = "none";
-        string sTypeBestEntity = "none";
+    //     double highestSaliency = 0.0;
+    //     double secondSaliency = 0.0;
+    //     string sNameBestEntity = "none";
+    //     string sTypeBestEntity = "none";
 
-        for (list<Entity*>::iterator itEnt = lEntities.begin(); itEnt != lEntities.end(); itEnt++)
-        {
-            string sName = (*itEnt)->name();
-            string sNameCut = sName;
-            string delimiter = "_";
-            size_t pos = 0;
-            string token;
-            if ((pos = sName.find(delimiter)) != string::npos) {
-                token = sName.substr(0, pos);
-                sName.erase(0, pos + delimiter.length());
-                sNameCut = token;
-            }
-            // check is label is known
+    //     for (list<Entity*>::iterator itEnt = lEntities.begin(); itEnt != lEntities.end(); itEnt++)
+    //     {
+    //         string sName = (*itEnt)->name();
+    //         string sNameCut = sName;
+    //         string delimiter = "_";
+    //         size_t pos = 0;
+    //         string token;
+    //         if ((pos = sName.find(delimiter)) != string::npos) {
+    //             token = sName.substr(0, pos);
+    //             sName.erase(0, pos + delimiter.length());
+    //             sNameCut = token;
+    //         }
+    //         // check is label is known
 
-            if (sNameCut == "unknown")
-            {
-                if ((*itEnt)->entity_type() == "object" || (*itEnt)->entity_type() == "agent" || (*itEnt)->entity_type() == "rtobject")
-                {
-                    Object* temp = dynamic_cast<Object*>(*itEnt);
-                    if (temp->m_saliency > highestSaliency)
-                    {
-                        if (secondSaliency != 0.0)
-                        {
-                            secondSaliency = highestSaliency;
-                        }
-                        highestSaliency = temp->m_saliency;
-                        sNameBestEntity = temp->name();
-                        sTypeBestEntity = temp->entity_type();
-                    }
-                    else
-                    {
-                        if (temp->m_saliency > secondSaliency)
-                        {
-                            secondSaliency = temp->m_saliency;
-                        }
-                    }
-                }
-            }
-        }
+    //         if (sNameCut == "unknown")
+    //         {
+    //             if ((*itEnt)->entity_type() == "object" || (*itEnt)->entity_type() == "agent" || (*itEnt)->entity_type() == "rtobject")
+    //             {
+    //                 Object* temp = dynamic_cast<Object*>(*itEnt);
+    //                 if (temp->m_saliency > highestSaliency)
+    //                 {
+    //                     if (secondSaliency != 0.0)
+    //                     {
+    //                         secondSaliency = highestSaliency;
+    //                     }
+    //                     highestSaliency = temp->m_saliency;
+    //                     sNameBestEntity = temp->name();
+    //                     sTypeBestEntity = temp->entity_type();
+    //                 }
+    //                 else
+    //                 {
+    //                     if (temp->m_saliency > secondSaliency)
+    //                     {
+    //                         secondSaliency = temp->m_saliency;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
 
-        bFound = false;
-        if (highestSaliency > thresholdSalienceDetection)
-        {
-            //the object with highest salience is salient enough
-            if (secondSaliency != 0.0)
-            {
-                // there are other salient objects
-                if ((highestSaliency / secondSaliency) > thresholdDistinguishObjectsRatio)
-                {
-                    //but it is enough difference
-                    bFound = true;
-                }
-            }
-            else
-            {
-                //other object are not salient
-                bFound = true;
-            }
-        }
-        if (sNameBestEntity == "none")
-        {
-            bFound = false;
-        }
+    //     bFound = false;
+    //     if (highestSaliency > thresholdSalienceDetection)
+    //     {
+    //         //the object with highest salience is salient enough
+    //         if (secondSaliency != 0.0)
+    //         {
+    //             // there are other salient objects
+    //             if ((highestSaliency / secondSaliency) > thresholdDistinguishObjectsRatio)
+    //             {
+    //                 //but it is enough difference
+    //                 bFound = true;
+    //             }
+    //         }
+    //         else
+    //         {
+    //             //other object are not salient
+    //             bFound = true;
+    //         }
+    //     }
+    //     if (sNameBestEntity == "none")
+    //     {
+    //         bFound = false;
+    //     }
 
-        if (bFound)
-        {
-            // change name
-            Entity* TARGET = iCub->opc->getEntity(sNameBestEntity);
-            TARGET->changeName(sNameTarget);
-            yInfo() << " name changed: " << sNameBestEntity << " is now " << sNameTarget;
-            bOutput.addString("name changed");
-            if(TARGET->entity_type()=="object") {
-                SubSystem_IOL2OPC* iol2opcClient = iCub->getIOL2OPCClient();
-                if(iol2opcClient!=NULL) {
-                    iol2opcClient->changeName(sNameBestEntity, sNameTarget);
-                }
-                else {
-                    yError() << "Could not connect to IOL2OPC subsystem";
-                }
-            }
-        }
+    //     if (bFound)
+    //     {
+    //         // change name
+    //         Entity* TARGET = iCub->opc->getEntity(sNameBestEntity);
+    //         TARGET->changeName(sNameTarget);
+    //         yInfo() << " name changed: " << sNameBestEntity << " is now " << sNameTarget;
+    //         bOutput.addString("name changed");
+    //         if(TARGET->entity_type()=="object") {
+    //             SubSystem_IOL2OPC* iol2opcClient = iCub->getIOL2OPCClient();
+    //             if(iol2opcClient!=NULL) {
+    //                 iol2opcClient->changeName(sNameBestEntity, sNameTarget);
+    //             }
+    //             else {
+    //                 yError() << "Could not connect to IOL2OPC subsystem";
+    //             }
+    //         }
+    //     }
+    // }
+
+    // bToPasar.clear();
+    // bToPasar.addString("pointing");
+    // bToPasar.addString("off");
+    // portToPasar.write(bToPasar);
+
+    iCub->opc->checkout();
+    list<Entity*> lEntities = iCub->opc->EntitiesCacheCopy();
+
+    string sNameBestEntity;
+
+    if (sNameTarget == "cube"){
+        sNameBestEntity = cube_name;
+    }else if (sNameTarget == "flower"){
+        sNameBestEntity = flower_name;
+    }else if (sNameTarget == "lobster"){
+        sNameBestEntity = lobster_name;
     }
 
-    bToPasar.clear();
-    bToPasar.addString("pointing");
-    bToPasar.addString("off");
-    portToPasar.write(bToPasar);
+    cout<< "0 : " << flower_name << " ; " << sNameBestEntity <<endl;
+    cout.flush();
 
+    // change name
+    Entity* TARGET = iCub->opc->getEntity(sNameBestEntity);
+
+        cout<< "1" <<endl;
+    cout.flush();
+
+    TARGET->changeName(sNameTarget);
+    yInfo() << " name changed: " << sNameBestEntity << " is now " << sNameTarget;
+
+        cout<< "2" <<endl;
+    cout.flush();
+
+    bOutput.addString("name changed");
+    if(TARGET->entity_type()=="object") {
+
+            cout<< "3" <<endl;
+    cout.flush();
+
+        SubSystem_IOL2OPC* iol2opcClient = iCub->getIOL2OPCClient();
+        if(iol2opcClient!=NULL) {
+            iol2opcClient->changeName(sNameBestEntity, sNameTarget);
+        }
+        else {
+            yError() << "Could not connect to IOL2OPC subsystem";
+        }
+    }
 
     iCub->opc->commit();
 

@@ -41,16 +41,17 @@ private:
     ICubClient *iCub;
 
     Bottle drivesList;
-    Bottle temporalDrivesList;
-
+    
+    string currentPartner;
     Port to_homeo_rpc;
+    Port ears_port;
     string moduleName;
     string homeo_name;
     int n_drives;
     Bottle drive_names;
 
     double period;
-    double salutationLifetime, lastResponseTime;
+    double salutationLifetime, lastResponseTime, last_time;
     double faceUpdatePeriod, lastFaceUpdate;
 
 	InternalVariablesDecay* decayThread;
@@ -60,6 +61,8 @@ private:
 	bool someonePresent;
     bool confusion;
     bool learning;
+    bool finding;
+    bool pointing;
 	//Reflexes
 	map<string, StimulusEmotionalResponse> salutationEffects;
 	map<string, StimulusEmotionalResponse> tactileEffects;
@@ -68,6 +71,9 @@ private:
 
 
     vector<double> drivePriorities;
+    vector<string> temporalDrivesList;
+    vector<string> searchList;
+    vector<string> pointList;
     double priority_sum;
 
     Port rpc;
@@ -114,6 +120,10 @@ public:
 
     //Retrieve and treat the gesture information input
     bool handleGesture();
+
+    //Handle a search command: look for object in opc or ask for it
+    bool handleSearch();
+    bool handlePoint();
 
 	//Update the drives accordingly to the stimuli
 	bool updateAllostatic();

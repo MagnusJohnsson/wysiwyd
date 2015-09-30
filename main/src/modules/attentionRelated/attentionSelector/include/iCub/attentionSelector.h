@@ -113,6 +113,7 @@ struct ObjectModel
 * Module in charge of polling the OPC and updating icubGUI
 */
 class attentionSelectorModule : public yarp::os::RFModule {
+    double last_look;
     std::string moduleName;
     std::string opcName;
 

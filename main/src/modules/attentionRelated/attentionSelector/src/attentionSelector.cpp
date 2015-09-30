@@ -29,6 +29,7 @@ using namespace std;
 /************************************************************************/
 bool attentionSelectorModule::configure(yarp::os::ResourceFinder &rf) {    
 
+    last_look = 0.0;
     moduleName            = rf.check("name",
         Value("attentionSelector"),
         "module name (string)").asString();
@@ -167,17 +168,25 @@ bool attentionSelectorModule::respond(const Bottle& command, Bottle& reply) {
         reply.addString("ack");
     }
     else if (command.get(0).asString()=="look") {
-        autoSwitch = false;
-        trackedObject = NULL;
-        trackedCoordinates = false;
+        if (yarp::os::Time::now() - last_look > 3.0) {
+            last_look = yarp::os::Time::now();
+            autoSwitch = false;
+            trackedObject = NULL;
+            trackedCoordinates = false;
 
-        Vector xyz(3);
-        xyz[0] = command.get(1).asDouble();
-        xyz[1] = command.get(2).asDouble();
-        xyz[2] = command.get(3).asDouble();
+            Vector xyz(3);
+            xyz[0] = command.get(1).asDouble();
+            xyz[1] = command.get(2).asDouble();
+            xyz[2] = command.get(3).asDouble();
 
-        igaze->lookAtFixationPoint(xyz);
-        reply.addString("ack");
+            igaze->lookAtFixationPoint(xyz);
+            reply.addString("ack");           
+        } else {
+            cout<<"AE blocked"<<endl; 
+            reply.addString("attention na yet");           
+
+        }
+
     }
     else if (command.get(0).asString()=="waitMotionDone") {
         igaze->waitMotionDone();

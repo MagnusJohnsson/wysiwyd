@@ -87,6 +87,9 @@ bool ReactiveLayer::configure(yarp::os::ResourceFinder &rf)
         Time::delay(1.0);
     }
 
+    finding = false;
+    pointing = false;
+
     //Set the voice
 
     std::string ttsOptions = rf.check("ttsOptions", yarp::os::Value("iCubina 85.0")).asString();
@@ -99,10 +102,20 @@ bool ReactiveLayer::configure(yarp::os::ResourceFinder &rf)
     //configureTactile(rf);
     configureSalutation(rf);
 
+    //Temporal ears configuration
+    string p_name = "/" + moduleName + "/ears:o";
+    ears_port.open(p_name);
+    while (!Network::connect(p_name,"/ears/rpc"))
+        {cout<<"Setting up ears connection... "<< "/ears/rpc" <<endl;yarp::os::Time::delay(0.5);}
+
+    last_time = yarp::os::Time::now();
+
     cout<<"Configuration done."<<endl;
 
     rpc.open ( ("/"+moduleName+"/rpc").c_str());
     attach(rpc);
+    while (!Network::connect("/ears/reactive:o","/"+moduleName +"/rpc"))
+        {cout<<"Setting up ears connection... "<< "/ears/reactive:o" <<endl;yarp::os::Time::delay(0.5);}
 
     //Initialise timers
     lastFaceUpdate = Time::now();
@@ -114,6 +127,18 @@ bool ReactiveLayer::configure(yarp::os::ResourceFinder &rf)
     //iCub->getReactableClient()->SendOSC(yarp::os::Bottle("/event reactable pong start"));
 
     yInfo("Init done");
+
+    
+    Bottle cmd;
+    cmd.clear();
+    cmd.addString("par");
+    cmd.addString("tagging");
+    cmd.addString("val");
+    cmd.addDouble(0.5);
+    Bottle rpl;
+    //rpc_ports[0]->write(cmd,rpl);
+
+    cout << rpl.toString()<<endl;
 
     return true;
 }
@@ -359,29 +384,45 @@ void ReactiveLayer::configureAllostatic(yarp::os::ResourceFinder &rf)
 bool ReactiveLayer::createTemporalDrive(string name, double prior)
 {
     //Add new drive with default configuration
-    Bottle cmd;
+    cout<<"!!!adding drive"<<endl;
+    Bottle cmd,rpl;
     cmd.clear();
     cmd.addString("add");
     cmd.addString("new");
     cmd.addString(name);
     to_homeo_rpc.write(cmd);
-    yarp::os::Time::delay(0.2);
-    //drivesList.push_back(name);
-
+    yarp::os::Time::delay(2.0);
+    drivesList.addString(name);
+    cout << "!!!making drive boolean"<<endl;
     //Remove decay: it will always be either needed or not
     cmd.clear();
     cmd.addString("par");
     cmd.addString(name);
     cmd.addString("dec");
     cmd.addDouble(0.0);
+    cout << cmd.toString()<<endl;
     to_homeo_rpc.write(cmd);
-    yarp::os::Time::delay(0.2);
+    cout << "!!!sending drive out of the CZ"<<endl;
+    yarp::os::Time::delay(2.0);
+    
+    //Set drive out of the boundary
+    cmd.clear();
+    cmd.addString("par");
+    cmd.addString(name);
+    cmd.addString("val");
+    cmd.addDouble(0.01);
+    to_homeo_rpc.write(cmd);
+    yarp::os::Time::delay(2.0);
 
     //Change priorities
+    cout << "!!!changing priorities"<<endl;
     double priority = priority_sum*prior;
     priority_sum += priority;
-    //drivePriorities.push_back();
+    drivePriorities.push_back(priority);
     Normalize(drivePriorities);
+
+    //temporal drives are only on this vector
+    temporalDrivesList.push_back(name);
 
 
     //Is everything alright¿?
@@ -403,17 +444,209 @@ bool ReactiveLayer::Normalize(vector<double>& vec) {
 bool ReactiveLayer::updateModule()
 {
     cout<<".";
-
+    cout << yarp::os::Time::now()<<endl;
     //handleSalutation(someonePresent);
     //physicalInteraction = handleTactile();
     confusion = handleTagging();
+    cout << "confusion handled "<< endl;
     cout << confusion << endl;
+
+    if (searchList.size()>0){
+        cout << "there are elements to search!!!"<<endl;
+        finding = handleSearch();
+    }
+        
+    if (pointList.size()>0){
+        if (finding)
+            pointing = handlePoint();
+        cout << "there are elements to point!!!"<<endl;
+    }
     //learning = handlePointing();
     updateAllostatic();
     //updateEmotions();
 
+
+    DriveOutCZ activeDrive = chooseDrive();
+
+
+    int i; // the chosen drive
+    cout << activeDrive.idx<<endl;
+    if (activeDrive.idx == -1) {
+        cout << "No drive out of CZ." << endl;
+        if ((yarp::os::Time::now()-last_time)>2.0)
+                {
+                last_time = yarp::os::Time::now();
+                Bottle cmd;
+                cmd.clear();
+                cmd.addString("listen");
+                cmd.addString("on");
+                ears_port.write(cmd);
+            }
+        return true;
+    }
+    else
+    {
+        i = activeDrive.idx;
+        
+                Bottle cmd;
+                cmd.clear();
+                cmd.addString("listen");
+                cmd.addString("off");
+                ears_port.write(cmd);
+    }
     return true;
 }
+
+bool ReactiveLayer::handlePoint()
+{
+    iCub->opc->checkout();
+    yInfo() << " [handlePoint] : opc checkout";
+    list<Entity*> lEntities = iCub->opc->EntitiesCache();
+    string e_name = pointList[pointList.size()-1];
+    bool pointRPC = false;
+    for (list<Entity*>::iterator itEnt = lEntities.begin(); itEnt != lEntities.end(); itEnt++)
+    {
+        string sName = (*itEnt)->name();
+        
+
+        cout << "Checking entity: " << e_name << " to " << sName<<endl;
+        if (sName == e_name) {
+            if ((*itEnt)->entity_type() == "object")//|| (*itEnt)->entity_type() == "agent" || (*itEnt)->entity_type() == "rtobject")
+            {
+                yInfo() << "I already knew that the object was in the opc: " << sName;
+                Object* o = dynamic_cast<Object*>(*itEnt);
+                if(o && o->m_present) {
+                    //pointRPC=true;
+                    cout << "I'd like to point " << e_name <<endl;
+                    Object* obj1 = iCub->opc->addOrRetrieveEntity<Object>(e_name);
+                    string sHand = "right";
+                    if (obj1->m_ego_position[1]<0) sHand = "left";
+                        Bottle bHand(sHand);
+                    iCub->point(e_name, bHand);
+                    yarp::os::Time::delay(2.0);
+                    iCub->home();
+                    pointList.pop_back();
+                    return true;
+                }
+
+            }
+            //pointRPC=true;
+        }
+    }/*else{
+            bool s_found = false;
+            for ( int i = 0; i<searchList.size();i++)
+            {
+                string s_name = searchList[i];
+                if (sName == s_name)
+                {
+                    yInfo() << "I should first find: " << sName;
+                    s_found=true;
+                    string d_name = "point";
+                    d_name += "_";
+                    d_name += e_name;
+                    for ( int j = 0; j<drivesList.size();j++)
+                    {
+                        if (drivesList.get(j).asString()==d_name)
+                        {
+                            drivePriorities[j] = 1/drivePriorities.size();
+                            return false;
+                        }
+                    }
+
+                }
+            }
+            if (!s_found)
+            {
+                yInfo() << "I don't know the name. I'll create a new drive: " << sName;
+                
+                double p = pow(1/1 ,5 ) * 100;
+                string d_name = "search";
+                d_name += "_";
+                d_name += e_name;
+                //createTemporalDrive(d_name, p);
+                searchList.push_back(e_name);
+
+            }
+        }*/
+
+    if (pointRPC)
+    {
+        //cout << "I'd like to point " << e_name <<endl;
+        //If there is an unknown object (to see with agents and rtobjects), add it to the rpc_command bottle, and return true
+        /*homeostaticUnderEffects["tagging"].rpc_command.clear();
+        homeostaticUnderEffects["tagging"].rpc_command.addString("point");
+        //homeostaticUnderEffects["pointing"].rpc_command.addString((*itEnt)->entity_type());
+        homeostaticUnderEffects["tagging"].rpc_command.addString(e_name);
+        Bottle rply;
+        rply.clear();
+        homeostaticUnderEffects["tagging"].output_port->write(homeostaticUnderEffects["pointing"].rpc_command,rply);
+        cout << rply.toString() << endl;*/
+        
+    }else{
+        cout << "Could not find the object to point.... "<<endl;
+    }
+
+    return false;
+    
+}
+
+bool ReactiveLayer::handleSearch()
+{
+    iCub->opc->checkout();
+    yInfo() << " [handleSearch] : opc checkout";
+    list<Entity*> lEntities = iCub->opc->EntitiesCache();
+    bool tagRPC = false;
+
+        string e_name = searchList[searchList.size()-1];
+
+    for (list<Entity*>::iterator itEnt = lEntities.begin(); itEnt != lEntities.end(); itEnt++)
+    {
+        string sName = (*itEnt)->name();
+        
+        //bool pointRPC = false;
+        
+        cout << "comparing entity: "<<e_name<<" to " << sName<<endl;
+
+        if (sName == e_name) {
+            cout << "Entity found: "<<e_name<<endl;
+            if ((*itEnt)->entity_type() == "object")//|| (*itEnt)->entity_type() == "agent" || (*itEnt)->entity_type() == "rtobject")
+            {
+                yInfo() << "I found the entity in the opc: " << sName;
+                Object* o = dynamic_cast<Object*>(*itEnt);
+                if(o && o->m_present) {
+                    searchList.pop_back();
+                    return true;
+                }
+            }else{
+                tagRPC = true;
+            }
+        }
+    }
+    cout << "I need to explore by name!" << endl;
+                tagRPC = true;
+        if (tagRPC)
+        {
+            // ask for the object
+            cout << "send rpc to proactiveTagging"<<endl;
+            Bottle rply;
+            rply.clear();
+
+            //If there is an unknown object (to see with agents and rtobjects), add it to the rpc_command bottle, and return true
+            homeostaticUnderEffects["tagging"].rpc_command.clear();
+            homeostaticUnderEffects["tagging"].rpc_command.addString("searchingEntity");
+            //homeostaticUnderEffects["tagging"].rpc_command.addString((*itEnt)->entity_type());
+            homeostaticUnderEffects["tagging"].rpc_command.addString(e_name);
+            homeostaticUnderEffects["tagging"].output_port->write(homeostaticUnderEffects["tagging"].rpc_command,rply);
+            cout << rply.toString() << endl;
+            searchList.pop_back();
+            return true;
+        }
+    
+    //if no unknown object was found, return false
+    return false;
+}
+
+
 bool ReactiveLayer::handlePointing()
 {
     iCub->opc->checkout();
@@ -521,6 +754,8 @@ bool ReactiveLayer::handleTagging()
             homeostaticUnderEffects["tagging"].rpc_command.addString("exploreUnknownEntity");
             homeostaticUnderEffects["tagging"].rpc_command.addString((*itEnt)->entity_type());
             homeostaticUnderEffects["tagging"].rpc_command.addString((*itEnt)->name());
+            //And make a boost to the drive
+            
             return true;
             /*
             Object* temp = dynamic_cast<Object*>(*itEnt);
@@ -570,7 +805,7 @@ bool ReactiveLayer::handleSalutation(bool& someoneIsPresent)
         if (currentAgent->name() != "icub" && currentAgent->m_present)
         {
             someoneIsPresent = true;
-            string currentPartner = currentAgent->name();
+            currentPartner = currentAgent->name();
             //cout<<"Testing salutation for "<<currentPartner<<" with name "<<identityName<<endl;
 
             bool saluted = false;
@@ -615,7 +850,7 @@ DriveOutCZ ReactiveLayer::chooseDrive() {
     for ( int i =0;i<drivesList.size();i++) {
         inCZ = outputm_ports[i]->read()->get(0).asDouble() <= 0 && outputM_ports[i]->read()->get(0).asDouble() <= 0;
         if (inCZ) {
-            outOfCzPriorities[i] = 0.;
+            outOfCzPriorities[i] = 0.1;
         }
         else {
             numOutCz ++;
@@ -648,6 +883,7 @@ DriveOutCZ ReactiveLayer::chooseDrive() {
 
 bool ReactiveLayer::updateAllostatic()
 {
+
     //iCub->updateAgent();
 
     //Update some specific drives based on the previous stimuli encountered
@@ -685,7 +921,7 @@ bool ReactiveLayer::updateAllostatic()
         cmd.addString("par");
         cmd.addString("tagging");
         cmd.addString("dec");
-        cmd.addDouble(0.006);
+        cmd.addDouble(0.001);
         cout << cmd.toString()<<endl;
         Bottle rply;
         rply.clear();
@@ -698,10 +934,9 @@ bool ReactiveLayer::updateAllostatic()
         cmd.addString("par");
         cmd.addString("tagging");
         cmd.addString("dec");
-        cmd.addDouble(-0.01);
+        cmd.addDouble(-0.0);
         cout << cmd.toString()<<endl;
-
-        to_homeo_rpc.write(cmd);
+        
     }
     if (learning)
     {
@@ -734,23 +969,99 @@ bool ReactiveLayer::updateAllostatic()
 
     DriveOutCZ activeDrive = chooseDrive();
 
-
+    //Maybe remove here
     int i; // the chosen drive
-
+    
     if (activeDrive.idx == -1) {
         cout << "No drive out of CZ." << endl;
+        if ((yarp::os::Time::now()-last_time)>2.0)
+                {
+                last_time = yarp::os::Time::now();
+                Bottle cmd;
+                cmd.clear();
+                cmd.addString("listen");
+                cmd.addString("on");
+                ears_port.write(cmd);
+            }
         return true;
     }
     else
+    {
         i = activeDrive.idx;
+        
+                Bottle cmd;
+                cmd.clear();
+                cmd.addString("listen");
+                cmd.addString("off");
+                ears_port.write(cmd);
+    }
+    bool temporal = false;
+    for (int j = 0;j<temporalDrivesList.size();j++)
+    {
+        if (drivesList.get(i).asString()==temporalDrivesList[j])
+            {
+                temporal = true;
+            }
+    }
+    /*if (temporal)
+    {
+        if (finding)
+        {
+            drivePriorities[i]=0;
+            string s_name = searchList[searchList.size()-1];
+            searchList.pop_back();
+            for (int n = 0; n< pointList.size();n++)
+            {
+                if (pointList[n]==s_name)
+                {
+                    string d_name = "point";
+                    d_name += "_";
+                    d_name += s_name;
+                    for (int m = 0; m<drivesList.size();m++)
+                    {
+                        if (d_name == drivesList.get(m).asString())
+                        {
+                            drivePriorities[m]=100;
+                        }
+                    }
+                }
+            }
+            Normalize(drivePriorities);
+        }
+        if (pointing)
+        {
+            drivePriorities[i]=0;
+            pointList.pop_back();
+        }
+    }else{*/
 
+
+    cout << "Things are happening"<<endl;
     //Under homeostasis
 
 
     if (activeDrive.level == UNDER)
     {
         yInfo() << " [updateAllostatic] Drive " << activeDrive.idx << " chosen. Under level.";
+        yarp::os::Time::delay(1.0);
+        iCub->look("partner");
+        yarp::os::Time::delay(1.0);
         iCub->say(homeostaticUnderEffects[drivesList.get(i).asString().c_str()].getRandomSentence());
+        Bottle cmd;
+        cmd.clear();
+        cmd.addString("par");
+        cmd.addString("tagging");
+        cmd.addString("val");
+        cmd.addDouble(0.5);
+        rpc_ports[i]->write(cmd);
+
+        cmd.clear();
+        cmd.addString("par");
+        cmd.addString("tagging");
+        cmd.addString("dec");
+        cmd.addDouble(0.0);
+        rpc_ports[i]->write(cmd);
+
         if (homeostaticUnderEffects[drivesList.get(i).asString().c_str()].active)
         {
             yInfo() << " [updateAllostatic] Command will be send";
@@ -765,35 +1076,39 @@ bool ReactiveLayer::updateAllostatic()
             homeostaticUnderEffects[drivesList.get(i).asString().c_str()].rpc_command.clear();
             yInfo() << "check rpc command is empty : " << homeostaticUnderEffects[drivesList.get(i).asString().c_str()].rpc_command.toString();
         }
-        Bottle cmd;
-        cmd.clear();
-        cmd.addString("delta");
-        cmd.addString(drivesList.get(i).asString().c_str());
-        cmd.addString("val");
-        cmd.addDouble(0.35);
-
-        rpc_ports[i]->write(cmd);
+        
 
         //d->second.value += (d->second.homeoStasisMax - d->second.homeoStasisMin) / 3.0;
     }
 
-    //Over homeostasis
-
     if (activeDrive.level == OVER)
     {
-        cout << "Drive " << activeDrive.idx << " chosen. Under level." << endl;
+        cout << "Drive " << activeDrive.idx << " chosen. Over level." << endl;
+        iCub->look("partner");
         iCub->say(homeostaticOverEffects[drivesList.get(i).asString().c_str()].getRandomSentence());
         Bottle cmd;
         cmd.clear();
-        cmd.addString("delta");
+        cmd.addString("par");
         cmd.addString(drivesList.get(i).asString().c_str());
         cmd.addString("val");
-        cmd.addDouble(-0.15);
+        cmd.addDouble(0.5);
 
         rpc_ports[i]->write(cmd);
         //d->second.value -= (d->second.homeoStasisMax - d->second.homeoStasisMin) / 3.0;;
-    }
-
+    }/*else
+    {
+        cout << "Goooood things"<< endl ;
+        if ((yarp::os::Time::now()-last_time)>5)
+            {
+            last_time = yarp::os::Time::now();
+            Bottle cmd;
+            cmd.clear();
+            cmd.addString("listen");
+            cmd.addString("on");
+            ears_port.write(cmd);
+        }
+    }*/
+    
     //cout<<"come on..."<<endl;
     //iCub->commitAgent();
     //cout<<"commited"<<endl;
@@ -889,15 +1204,42 @@ bool ReactiveLayer::respond(const Bottle& cmd, Bottle& reply)
         {
             if (cmd.get(2).asString() == "search")
             {
+                cout << yarp::os::Time::now()<<endl;
+                cout<< "haha! time to work!"<<endl;
                 string o_name = cmd.get(3).asString();
-                double p = (1/cmd.get(4).asDouble() * 5 ) * 100;
-                createTemporalDrive(o_name, p);
+                double p = pow(1/cmd.get(4).asDouble() ,5 ) * 100;
+                string d_name = "search";
+                d_name += "_";
+                d_name += o_name;
+                //createTemporalDrive(d_name, p);
+                cout << "searchList size:"<<endl;
+
+                searchList.push_back(o_name);
+                cout << searchList.size() << endl;
+                cout << searchList[0]<<endl;
+                reply.addString("ack");
+
             }
         }else if (cmd.get(1).asString() == "primitive")
         {
+            if (cmd.get(2).asString() == "point")
+            {
+                cout << yarp::os::Time::now()<<endl;
+                string o_name = cmd.get(3).asString();
+                double p = pow(1/cmd.get(4).asDouble() ,5 ) * 100;
+                string d_name = "point";
+                d_name += "_";
+                d_name += o_name;
+                //createTemporalDrive(d_name, p);
+                //searchList.push_back(o_name);
+                //createTemporalDrive(o_name, p);
+                pointList.push_back(o_name);
+                reply.addString("ack");
 
+            }
         }
     }
+    reply.addString("nack");
 
     return true;
 }

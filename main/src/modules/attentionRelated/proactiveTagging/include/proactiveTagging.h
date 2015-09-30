@@ -20,6 +20,9 @@
 class proactiveTagging : public yarp::os::RFModule {
 private:
 
+    std::string cube_name;
+    std::string lobster_name;
+    std::string flower_name;
     wysiwyd::wrdac::ICubClient  *iCub;
 
     double      period;
