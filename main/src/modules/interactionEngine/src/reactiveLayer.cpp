@@ -466,34 +466,6 @@ bool ReactiveLayer::updateModule()
     //updateEmotions();
 
 
-    DriveOutCZ activeDrive = chooseDrive();
-
-
-    int i; // the chosen drive
-    cout << activeDrive.idx<<endl;
-    if (activeDrive.idx == -1) {
-        cout << "No drive out of CZ." << endl;
-        if ((yarp::os::Time::now()-last_time)>2.0)
-                {
-                last_time = yarp::os::Time::now();
-                Bottle cmd;
-                cmd.clear();
-                cmd.addString("listen");
-                cmd.addString("on");
-                ears_port.write(cmd);
-            }
-        return true;
-    }
-    else
-    {
-        i = activeDrive.idx;
-        
-                Bottle cmd;
-                cmd.clear();
-                cmd.addString("listen");
-                cmd.addString("off");
-                ears_port.write(cmd);
-    }
     return true;
 }
 
