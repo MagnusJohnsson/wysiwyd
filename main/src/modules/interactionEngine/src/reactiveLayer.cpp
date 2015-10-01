@@ -27,7 +27,7 @@ int ReactiveLayer::openPorts(string driveName,int d)
     string targetPortName = "/" + homeo_name + "/" + driveName + "/min:o";
     /*
     cout << "Configuring port " <<d<< " : "<< pn << " ..." << endl;
-    if (!rpc_ports[d]->open((pn).c_str()))
+    if (!rpc_ports[d]->open((pn)))
     {
         cout << getName() << ": Unable to open port " << pn << endl;
     }
@@ -42,7 +42,7 @@ int ReactiveLayer::openPorts(string driveName,int d)
     */
     pn = portName + "/min:i";
     cout << "Configuring port " <<d<< " : "<< pn << " ..." << endl;
-    if (!outputm_ports[d]->open((pn).c_str()))
+    if (!outputm_ports[d]->open((pn)))
     {
         cout << getName() << ": Unable to open port " << pn << endl;
     }
@@ -53,7 +53,7 @@ int ReactiveLayer::openPorts(string driveName,int d)
     pn = portName + "/max:i";
     cout << "Configuring port " <<d<< " : "<< pn << " ..." << endl;
     yarp::os::Time::delay(0.1);
-    if (!outputM_ports[d]->open((pn).c_str()))
+    if (!outputM_ports[d]->open((pn)))
     {
         cout << getName() << ": Unable to open port " << pn << endl;
     }
@@ -67,7 +67,7 @@ int ReactiveLayer::openPorts(string driveName,int d)
 
 bool ReactiveLayer::configure(yarp::os::ResourceFinder &rf)
 {
-    moduleName = rf.check("name",Value("ReactiveLayer")).asString().c_str();
+    moduleName = rf.check("name",Value("ReactiveLayer")).asString();
     setName(moduleName.c_str());
 
     cout<<moduleName<<": finding configuration files..."<<endl;
@@ -112,7 +112,7 @@ bool ReactiveLayer::configure(yarp::os::ResourceFinder &rf)
 
     cout<<"Configuration done."<<endl;
 
-    rpc.open ( ("/"+moduleName+"/rpc").c_str());
+    rpc.open ( ("/"+moduleName+"/rpc"));
     attach(rpc);
     while (!Network::connect("/ears/reactive:o","/"+moduleName +"/rpc"))
         {cout<<"Setting up ears connection... "<< "/ears/reactive:o" <<endl;yarp::os::Time::delay(0.5);}
@@ -155,19 +155,19 @@ void ReactiveLayer::configureSalutation(yarp::os::ResourceFinder &rf)
     {
         for (int d = 0; d<socialStimulus->size(); d++)
         {
-            string socialStimulusName = socialStimulus->get(d).asString().c_str();
+            string socialStimulusName = socialStimulus->get(d).asString();
             StimulusEmotionalResponse response;
-            Bottle * bSentences = grpSocial.find((socialStimulusName + "-sentence").c_str()).asList();
+            Bottle * bSentences = grpSocial.find((socialStimulusName + "-sentence")).asList();
             for (int s = 0; s<bSentences->size(); s++)
             {
-                response.m_sentences.push_back(bSentences->get(s).asString().c_str());
+                response.m_sentences.push_back(bSentences->get(s).asString());
             }
             std::string sGroupTemp = socialStimulusName;
             sGroupTemp += "-effect";
-            Bottle *bEffects = grpSocial.find(sGroupTemp.c_str()).asList();
+            Bottle *bEffects = grpSocial.find(sGroupTemp).asList();
             for (int i = 0; bEffects && i<bEffects->size(); i += 2)
             {
-                response.m_emotionalEffect[bEffects->get(i).asString().c_str()] = bEffects->get(i + 1).asDouble();
+                response.m_emotionalEffect[bEffects->get(i).asString()] = bEffects->get(i + 1).asDouble();
             }
             salutationEffects[socialStimulusName] = response;
         }
@@ -225,7 +225,7 @@ void ReactiveLayer::configureAllostatic(yarp::os::ResourceFinder &rf)
     for (int d = 0; d<drivesList.size(); d++)
     {
         cmd.clear();
-        string driveName = drivesList.get(d).asString().c_str();
+        string driveName = drivesList.get(d).asString();
 
         cmd.addString("add");
         cmd.addString("conf");
@@ -276,17 +276,17 @@ void ReactiveLayer::configureAllostatic(yarp::os::ResourceFinder &rf)
 
         //Under effects
         StimulusEmotionalResponse responseUnder;
-        Bottle * bSentences = grpAllostatic.find((driveName + "-under-sentences").c_str()).asList();
+        Bottle * bSentences = grpAllostatic.find((driveName + "-under-sentences")).asList();
         for (int s = 0; bSentences && s<bSentences->size(); s++)
         {
-            responseUnder.m_sentences.push_back(bSentences->get(s).asString().c_str());
+            responseUnder.m_sentences.push_back(bSentences->get(s).asString());
         }
-        Bottle *bChore = grpAllostatic.find((driveName + "-under-chore").c_str()).asList();
+        Bottle *bChore = grpAllostatic.find((driveName + "-under-chore")).asList();
         for (int sC = 0; bChore && sC<bChore->size(); sC++)
         {
-            responseUnder.m_choregraphies.push_back(bChore->get(sC).asString().c_str());
+            responseUnder.m_choregraphies.push_back(bChore->get(sC).asString());
         }
-        string under_port_name = grpAllostatic.check((driveName + "-under-behavior-port").c_str(), Value("None")).asString();
+        string under_port_name = grpAllostatic.check((driveName + "-under-behavior-port"), Value("None")).asString();
 
         cout << under_port_name << endl;
 
@@ -316,17 +316,17 @@ void ReactiveLayer::configureAllostatic(yarp::os::ResourceFinder &rf)
 
         //Over effects
         StimulusEmotionalResponse responseOver;
-        bSentences = grpAllostatic.find((driveName + "-over-sentences").c_str()).asList();
+        bSentences = grpAllostatic.find((driveName + "-over-sentences")).asList();
         for (int s = 0; bSentences&& s<bSentences->size(); s++)
         {
-            responseOver.m_sentences.push_back(bSentences->get(s).asString().c_str());
+            responseOver.m_sentences.push_back(bSentences->get(s).asString());
         }
-        bChore = grpAllostatic.find((driveName + "-over-chore").c_str()).asList();
+        bChore = grpAllostatic.find((driveName + "-over-chore")).asList();
         for (int sC = 0; bChore && sC<bChore->size(); sC++)
         {
-            responseOver.m_choregraphies.push_back(bChore->get(sC).asString().c_str());
+            responseOver.m_choregraphies.push_back(bChore->get(sC).asString());
         }
-        string over_port_name = grpAllostatic.check((driveName + "-over-behavior-port").c_str(), Value("None")).asString();
+        string over_port_name = grpAllostatic.check((driveName + "-over-behavior-port"), Value("None")).asString();
         if (over_port_name != "None")
         {
             responseOver.active=true;
@@ -364,7 +364,7 @@ void ReactiveLayer::configureAllostatic(yarp::os::ResourceFinder &rf)
     {
         for (int d = 0; d<emotionsList->size(); d++)
         {
-            string emoName = emotionsList->get(d).asString().c_str();
+            string emoName = emotionsList->get(d).asString();
             //iCub->icubAgent->m_emotions_intrinsic[emoName] = 0.0;
         }
     }
@@ -466,34 +466,6 @@ bool ReactiveLayer::updateModule()
     //updateEmotions();
 
 
-    DriveOutCZ activeDrive = chooseDrive();
-
-
-    int i; // the chosen drive
-    cout << activeDrive.idx<<endl;
-    if (activeDrive.idx == -1) {
-        cout << "No drive out of CZ." << endl;
-        if ((yarp::os::Time::now()-last_time)>2.0)
-                {
-                last_time = yarp::os::Time::now();
-                Bottle cmd;
-                cmd.clear();
-                cmd.addString("listen");
-                cmd.addString("on");
-                ears_port.write(cmd);
-            }
-        return true;
-    }
-    else
-    {
-        i = activeDrive.idx;
-        
-                Bottle cmd;
-                cmd.clear();
-                cmd.addString("listen");
-                cmd.addString("off");
-                ears_port.write(cmd);
-    }
     return true;
 }
 
@@ -1043,10 +1015,10 @@ bool ReactiveLayer::updateAllostatic()
     if (activeDrive.level == UNDER)
     {
         yInfo() << " [updateAllostatic] Drive " << activeDrive.idx << " chosen. Under level.";
-        yarp::os::Time::delay(1.0);
-        iCub->look("partner");
-        yarp::os::Time::delay(1.0);
-        iCub->say(homeostaticUnderEffects[drivesList.get(i).asString().c_str()].getRandomSentence());
+        // yarp::os::Time::delay(1.0);
+        // iCub->look("partner");
+        // yarp::os::Time::delay(1.0);
+        iCub->say(homeostaticUnderEffects[drivesList.get(i).asString()].getRandomSentence());
         Bottle cmd;
         cmd.clear();
         cmd.addString("par");
@@ -1062,19 +1034,19 @@ bool ReactiveLayer::updateAllostatic()
         cmd.addDouble(0.0);
         rpc_ports[i]->write(cmd);
 
-        if (homeostaticUnderEffects[drivesList.get(i).asString().c_str()].active)
+        if (homeostaticUnderEffects[drivesList.get(i).asString()].active)
         {
             yInfo() << " [updateAllostatic] Command will be send";
-            yInfo() <<homeostaticUnderEffects[drivesList.get(i).asString().c_str()].active << homeostaticUnderEffects[drivesList.get(i).asString().c_str()].rpc_command.toString();
+            yInfo() <<homeostaticUnderEffects[drivesList.get(i).asString()].active << homeostaticUnderEffects[drivesList.get(i).asString()].rpc_command.toString();
             Bottle rply;
             rply.clear();
-            homeostaticUnderEffects[drivesList.get(i).asString().c_str()].output_port->write(homeostaticUnderEffects[drivesList.get(i).asString().c_str()].rpc_command,rply);
+            homeostaticUnderEffects[drivesList.get(i).asString()].output_port->write(homeostaticUnderEffects[drivesList.get(i).asString()].rpc_command,rply);
             yarp::os::Time::delay(0.1);
             yInfo() << "[updateAllostatic] reply from homeostatis : " << rply.toString();
 
             //clear as soon as sent
-            homeostaticUnderEffects[drivesList.get(i).asString().c_str()].rpc_command.clear();
-            yInfo() << "check rpc command is empty : " << homeostaticUnderEffects[drivesList.get(i).asString().c_str()].rpc_command.toString();
+            homeostaticUnderEffects[drivesList.get(i).asString()].rpc_command.clear();
+            yInfo() << "check rpc command is empty : " << homeostaticUnderEffects[drivesList.get(i).asString()].rpc_command.toString();
         }
         
 
@@ -1085,11 +1057,11 @@ bool ReactiveLayer::updateAllostatic()
     {
         cout << "Drive " << activeDrive.idx << " chosen. Over level." << endl;
         iCub->look("partner");
-        iCub->say(homeostaticOverEffects[drivesList.get(i).asString().c_str()].getRandomSentence());
+        iCub->say(homeostaticOverEffects[drivesList.get(i).asString()].getRandomSentence());
         Bottle cmd;
         cmd.clear();
         cmd.addString("par");
-        cmd.addString(drivesList.get(i).asString().c_str());
+        cmd.addString(drivesList.get(i).asString());
         cmd.addString("val");
         cmd.addDouble(0.5);
 
@@ -1129,7 +1101,7 @@ void ReactiveLayer::configureOPC(yarp::os::ResourceFinder &rf)
         {
             for(int d=0; d<agentList->size(); d++)
             {
-                string name = agentList->get(d).asString().c_str();
+                string name = agentList->get(d).asString();
                 Agent* agent = iCub->opc->addOrRetrieveEntity<Agent>(name);
                 agent->m_present = false;
                 iCub->opc->commit(agent);
@@ -1141,7 +1113,7 @@ void ReactiveLayer::configureOPC(yarp::os::ResourceFinder &rf)
         {
             for(int d=0; d<objectList->size(); d++)
             {
-                string name = objectList->get(d).asString().c_str();
+                string name = objectList->get(d).asString();
                 Object* o = iCub->opc->addOrRetrieveEntity<Object>(name);
                 o->m_present = false;
                 iCub->opc->commit(o);
@@ -1153,7 +1125,7 @@ void ReactiveLayer::configureOPC(yarp::os::ResourceFinder &rf)
         {
             for(int d=0; d<rtobjectList->size(); d++)
             {
-                string name = rtobjectList->get(d).asString().c_str();
+                string name = rtobjectList->get(d).asString();
                 RTObject* o = iCub->opc->addOrRetrieveEntity<RTObject>(name);
                 o->m_present = false;
                 iCub->opc->commit(o);
@@ -1165,7 +1137,7 @@ void ReactiveLayer::configureOPC(yarp::os::ResourceFinder &rf)
         {
             for(int d=0; d<adjectiveList->size(); d++)
             {
-                string name = adjectiveList->get(d).asString().c_str();
+                string name = adjectiveList->get(d).asString();
                 Adjective* a = iCub->opc->addOrRetrieveEntity<Adjective>(name);
                 iCub->opc->commit(a);
             }
@@ -1176,7 +1148,7 @@ void ReactiveLayer::configureOPC(yarp::os::ResourceFinder &rf)
         {
             for(int d=0; d<actionList->size(); d++)
             {
-                string name = actionList->get(d).asString().c_str();
+                string name = actionList->get(d).asString();
                 Action* a = iCub->opc->addOrRetrieveEntity<Action>(name);
                 iCub->opc->commit(a);
             }
