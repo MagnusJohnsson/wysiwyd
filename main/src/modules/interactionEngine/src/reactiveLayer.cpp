@@ -48,8 +48,10 @@ int ReactiveLayer::openPorts(string driveName,int d)
     }
     targetPortName = "/" + homeo_name + "/" + driveName + "/min:o";
     yarp::os::Time::delay(0.1);
-    while(!Network::connect(targetPortName,pn))
-    {cout<<"Setting up homeostatic connections... "<< targetPortName << " " << pn <<endl;yarp::os::Time::delay(0.5);}
+    while(!Network::connect(targetPortName,pn)){
+        cout<<"Setting up homeostatic connections... "<< targetPortName << " " << pn <<endl;
+        yarp::os::Time::delay(0.5);
+    }
     pn = portName + "/max:i";
     cout << "Configuring port " <<d<< " : "<< pn << " ..." << endl;
     yarp::os::Time::delay(0.1);
@@ -139,6 +141,8 @@ bool ReactiveLayer::configure(yarp::os::ResourceFinder &rf)
     //rpc_ports[0]->write(cmd,rpl);
 
     cout << rpl.toString()<<endl;
+
+    iCub->home();
 
     return true;
 }
@@ -495,6 +499,7 @@ bool ReactiveLayer::handlePoint()
                     if (obj1->m_ego_position[1]<0) sHand = "left";
                         Bottle bHand(sHand);
                     iCub->point(e_name, bHand);
+                    iCub->say("oh! this is a " + e_name);
                     yarp::os::Time::delay(2.0);
                     iCub->home();
                     pointList.pop_back();
@@ -893,7 +898,7 @@ bool ReactiveLayer::updateAllostatic()
         cmd.addString("par");
         cmd.addString("tagging");
         cmd.addString("dec");
-        cmd.addDouble(0.001);
+        cmd.addDouble(0.004);
         cout << cmd.toString()<<endl;
         Bottle rply;
         rply.clear();
@@ -908,7 +913,21 @@ bool ReactiveLayer::updateAllostatic()
         cmd.addString("dec");
         cmd.addDouble(-0.0);
         cout << cmd.toString()<<endl;
-        
+        Bottle rply;
+        rply.clear();
+        to_homeo_rpc.write(cmd,rply);
+        cout<<rply.toString()<<endl;
+
+        yarp::os::Time::delay(0.2);
+        cmd.clear();
+        cmd.addString("par");
+        cmd.addString("tagging");
+        cmd.addString("val");
+        cmd.addDouble(0.5);
+        cout << cmd.toString()<<endl;        
+        rply.clear();
+        to_homeo_rpc.write(cmd,rply);
+        cout<<rply.toString()<<endl;       
     }
     if (learning)
     {
@@ -942,7 +961,7 @@ bool ReactiveLayer::updateAllostatic()
     DriveOutCZ activeDrive = chooseDrive();
 
     //Maybe remove here
-    int i; // the chosen drive
+    //int i; // the chosen drive
     
     if (activeDrive.idx == -1) {
         cout << "No drive out of CZ." << endl;
@@ -959,7 +978,7 @@ bool ReactiveLayer::updateAllostatic()
     }
     else
     {
-        i = activeDrive.idx;
+        //i = activeDrive.idx;
         
                 Bottle cmd;
                 cmd.clear();
@@ -970,7 +989,7 @@ bool ReactiveLayer::updateAllostatic()
     bool temporal = false;
     for (int j = 0;j<temporalDrivesList.size();j++)
     {
-        if (drivesList.get(i).asString()==temporalDrivesList[j])
+        if (drivesList.get(activeDrive.idx).asString()==temporalDrivesList[j])
             {
                 temporal = true;
             }
@@ -1015,38 +1034,40 @@ bool ReactiveLayer::updateAllostatic()
     if (activeDrive.level == UNDER)
     {
         yInfo() << " [updateAllostatic] Drive " << activeDrive.idx << " chosen. Under level.";
+        yarp::os::Time::delay(1.0);
+        iCub->look("partner");
         // yarp::os::Time::delay(1.0);
-        // iCub->look("partner");
-        // yarp::os::Time::delay(1.0);
-        iCub->say(homeostaticUnderEffects[drivesList.get(i).asString()].getRandomSentence());
+        iCub->say(homeostaticUnderEffects[drivesList.get(activeDrive.idx).asString()].getRandomSentence());
         Bottle cmd;
         cmd.clear();
         cmd.addString("par");
         cmd.addString("tagging");
         cmd.addString("val");
         cmd.addDouble(0.5);
-        rpc_ports[i]->write(cmd);
+        //rpc_ports[activeDrive.idx]->write(cmd);
+        to_homeo_rpc.write(cmd);
 
         cmd.clear();
         cmd.addString("par");
         cmd.addString("tagging");
         cmd.addString("dec");
         cmd.addDouble(0.0);
-        rpc_ports[i]->write(cmd);
+        //rpc_ports[activeDrive.idx]->write(cmd);
+        to_homeo_rpc.write(cmd);
 
-        if (homeostaticUnderEffects[drivesList.get(i).asString()].active)
+        if (homeostaticUnderEffects[drivesList.get(activeDrive.idx).asString()].active)
         {
             yInfo() << " [updateAllostatic] Command will be send";
-            yInfo() <<homeostaticUnderEffects[drivesList.get(i).asString()].active << homeostaticUnderEffects[drivesList.get(i).asString()].rpc_command.toString();
+            yInfo() <<homeostaticUnderEffects[drivesList.get(activeDrive.idx).asString()].active << homeostaticUnderEffects[drivesList.get(activeDrive.idx).asString()].rpc_command.toString();
             Bottle rply;
             rply.clear();
-            homeostaticUnderEffects[drivesList.get(i).asString()].output_port->write(homeostaticUnderEffects[drivesList.get(i).asString()].rpc_command,rply);
+            homeostaticUnderEffects[drivesList.get(activeDrive.idx).asString()].output_port->write(homeostaticUnderEffects[drivesList.get(activeDrive.idx).asString()].rpc_command,rply);
             yarp::os::Time::delay(0.1);
             yInfo() << "[updateAllostatic] reply from homeostatis : " << rply.toString();
 
             //clear as soon as sent
-            homeostaticUnderEffects[drivesList.get(i).asString()].rpc_command.clear();
-            yInfo() << "check rpc command is empty : " << homeostaticUnderEffects[drivesList.get(i).asString()].rpc_command.toString();
+            homeostaticUnderEffects[drivesList.get(activeDrive.idx).asString()].rpc_command.clear();
+            yInfo() << "check rpc command is empty : " << homeostaticUnderEffects[drivesList.get(activeDrive.idx).asString()].rpc_command.toString();
         }
         
 
@@ -1056,16 +1077,16 @@ bool ReactiveLayer::updateAllostatic()
     if (activeDrive.level == OVER)
     {
         cout << "Drive " << activeDrive.idx << " chosen. Over level." << endl;
-        iCub->look("partner");
-        iCub->say(homeostaticOverEffects[drivesList.get(i).asString()].getRandomSentence());
+//        iCub->look("partner");
+        iCub->say(homeostaticOverEffects[drivesList.get(activeDrive.idx).asString()].getRandomSentence());
         Bottle cmd;
         cmd.clear();
         cmd.addString("par");
-        cmd.addString(drivesList.get(i).asString());
+        cmd.addString(drivesList.get(activeDrive.idx).asString());
         cmd.addString("val");
         cmd.addDouble(0.5);
 
-        rpc_ports[i]->write(cmd);
+        to_homeo_rpc.write(cmd);
         //d->second.value -= (d->second.homeoStasisMax - d->second.homeoStasisMin) / 3.0;;
     }/*else
     {
