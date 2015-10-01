@@ -1044,7 +1044,7 @@ bool ReactiveLayer::updateAllostatic()
     {
         yInfo() << " [updateAllostatic] Drive " << activeDrive.idx << " chosen. Under level.";
         yarp::os::Time::delay(1.0);
-        iCub->look("partner");
+        //iCub->look("partner");
         yarp::os::Time::delay(1.0);
         iCub->say(homeostaticUnderEffects[drivesList.get(i).asString().c_str()].getRandomSentence());
         Bottle cmd;
@@ -1084,7 +1084,7 @@ bool ReactiveLayer::updateAllostatic()
     if (activeDrive.level == OVER)
     {
         cout << "Drive " << activeDrive.idx << " chosen. Over level." << endl;
-        iCub->look("partner");
+        //iCub->look("partner");
         iCub->say(homeostaticOverEffects[drivesList.get(i).asString().c_str()].getRandomSentence());
         Bottle cmd;
         cmd.clear();
