@@ -266,7 +266,7 @@ bool homeostaticModule::respond(const Bottle& cmd, Bottle& reply)
         }
         else if (cmd.get(1).asString()=="new")
         {
-            cout << "I'm in manager "<<endl;
+            //cout << "I'm in manager "<<endl;
             string d_name = cmd.get(2).asString();
             cout << "adding new drive... " << endl;
             bool b = addNewDrive(d_name);
@@ -337,7 +337,6 @@ bool homeostaticModule::updateModule()
                 else
                 {
                     manager.drives[d]->setValue(inp->get(0).asDouble());
-                    cout<<"Printing gradient value: "<< endl;
                 }
             }else{
                 //manager.drives[d]->setValue(inp->get(0).asDouble());

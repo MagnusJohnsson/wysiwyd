@@ -20,9 +20,6 @@
 class proactiveTagging : public yarp::os::RFModule {
 private:
 
-    std::string cube_name;
-    std::string lobster_name;
-    std::string flower_name;
     wysiwyd::wrdac::ICubClient  *iCub;
 
     double      period;
@@ -30,6 +27,7 @@ private:
     std::string      grammarToString(std::string sPath);
     yarp::os::Port   rpcPort;
     yarp::os::Port   portToBodySchema;
+yarp::os::BufferedPort<yarp::os::Bottle>   portNoWaitToBodySchema;
     yarp::os::Port   portToPasar;
     yarp::os::Port   portToLRH;
     yarp::os::BufferedPort<yarp::os::Bottle>   portFromTouchDetector;
