@@ -1200,6 +1200,7 @@ bool ReactiveLayer::respond(const Bottle& cmd, Bottle& reply)
                 cout << yarp::os::Time::now()<<endl;
                 cout<< "haha! time to work!"<<endl;
                 string o_name = cmd.get(3).asString();
+                if (o_name != "none"){
                 double p = pow(1/cmd.get(4).asDouble() ,5 ) * 100;
                 string d_name = "search";
                 d_name += "_";
@@ -1210,6 +1211,7 @@ bool ReactiveLayer::respond(const Bottle& cmd, Bottle& reply)
                 searchList.push_back(o_name);
                 cout << searchList.size() << endl;
                 cout << searchList[0]<<endl;
+                }
                 reply.addString("ack");
 
             }
@@ -1219,6 +1221,7 @@ bool ReactiveLayer::respond(const Bottle& cmd, Bottle& reply)
             {
                 cout << yarp::os::Time::now()<<endl;
                 string o_name = cmd.get(3).asString();
+                if (o_name != "none"){
                 double p = pow(1/cmd.get(4).asDouble() ,5 ) * 100;
                 string d_name = "point";
                 d_name += "_";
@@ -1227,6 +1230,7 @@ bool ReactiveLayer::respond(const Bottle& cmd, Bottle& reply)
                 //searchList.push_back(o_name);
                 //createTemporalDrive(o_name, p);
                 pointList.push_back(o_name);
+            }
                 reply.addString("ack");
 
             }

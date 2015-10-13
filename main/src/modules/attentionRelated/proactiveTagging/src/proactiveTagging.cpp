@@ -763,11 +763,11 @@ Bottle proactiveTagging::searchingEntity(Bottle bInput)
 
     string sNameBestEntity;
 
-    if (sNameTarget == "cube"){
+    if (sNameTarget == "toy"){
         sNameBestEntity = cube_name;
-    }else if (sNameTarget == "flower"){
+    }else if (sNameTarget == "marker"){
         sNameBestEntity = flower_name;
-    }else if (sNameTarget == "lobster"){
+    }else if (sNameTarget == "joystick"){
         sNameBestEntity = lobster_name;
     }
 
