@@ -324,7 +324,7 @@ bool homeostaticModule::updateModule()
         yarp::os::Bottle* inp;
         inp = input_ports[d]->read(false);
         //cout << inp << endl;
-        cout <<"G= " <<manager.drives[d]->gradient<<endl;
+        
         if(manager.drives[d]->gradient == true)
         {
             if (inp)

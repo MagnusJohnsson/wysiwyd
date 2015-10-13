@@ -65,8 +65,8 @@ class PasarModule : public yarp::os::RFModule {
     yarp::sig::Vector leftHandt1;   // position of left hand at t1
     yarp::sig::Vector leftHandt2;   // position of left hand at t2
 
-    pair<bool,bool> presentRightHand;
-    pair<bool,bool> presentLeftHand;
+    pair<bool, bool> presentRightHand;
+    pair<bool, bool> presentLeftHand;
 
     BufferedPort<ImageOf<PixelMono> > saliencyInput;
     BufferedPort<ImageOf<PixelRgb> >  saliencyOutput;
@@ -83,7 +83,8 @@ class PasarModule : public yarp::os::RFModule {
     std::string trackedObject;
 
     bool isControllingMotors;
-    bool isPointing; // is the human is pointing
+    bool isPointing; // if the human is pointing
+    bool isWaving; // check if the human is waving
     int store_context_id;
 
 protected:
